@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Stick Figure Lob Game</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+    }
+    canvas {
+      background: #87CEEB;
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    #title {
+      position: absolute;
+      top: 10px;
+      width: 100%;
+      text-align: center;
+      font-family: Arial, sans-serif;
+      color: #cc3366;
+      font-size: 2em;
+      z-index: 10;
+    }
+    #continueButton {
+      position: absolute;
+      top: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      font-size: 1em;
+      background-color: #cc3366;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      display: none;
+      z-index: 11;
+    }
+  </style>
+</head>
+<body>
+  <div id="title">I lob you &lt;3</div>
+  <button id="continueButton">What Happens next????</button>
+  <canvas id="gameCanvas"></canvas>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const continueButton = document.getElementById('continueButton');
+    const title = document.getElementById('title');
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    const player1 = { x: canvas.width * .25 - 60, y: canvas.height - 140, color: 'red' };
+    let player2 = {
+      x: canvas.width * .25 - 40, y: canvas.height - 140, color: 'blue', vx: 0, vy: 0,
+      gravity: 0.4, isFlying: false, hasFallen: false, splashFrame: 0
+    };
+    let boat = { x: canvas.width * 0.25 + 50, dir: 1 };
+    let crab = { x: canvas.width * 0.5, dir: 1 };
+    let bubbles = Array.from({ length: 20 }, () => ({
+      x: Math.random() * canvas.width,
+      y: canvas.height - Math.random() * 100,
+      speed: Math.random() * 0.5 + 0.5
+    }));
+    let seaweedPhase = 0;
+    let underwaterScene = false;
+
+    function drawStickFigure(x, y, color, dance = false) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y - 20, 10, 0, Math.PI * 2);
+      ctx.moveTo(x, y - 10); ctx.lineTo(x, y + 20);
+      ctx.moveTo(x - 10, y); ctx.lineTo(x + 10, y);
+      if (dance) {
+        ctx.moveTo(x, y + 20); ctx.lineTo(x - 15, y + 40);
+        ctx.moveTo(x, y + 20); ctx.lineTo(x + 15, y + 35);
+      } else {
+        ctx.moveTo(x, y + 20); ctx.lineTo(x - 10, y + 40);
+        ctx.moveTo(x, y + 20); ctx.lineTo(x + 10, y + 40);
+      }
+      ctx.stroke();
+    }
+
+    function drawUnderwaterScene() {
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+
+      // Load and draw 6 placeholder images
+      const imagePaths = [
+        'images/Snapchat-1522024848.jpg', // top-left
+        'images/PXL_20250614_001707669.jpg', // top-right
+      ];
+
+      imagePaths.forEach((src, i) => {
+        const img = new Image();
+        img.src = src; 
+        img.onload = () => {
+          const offsets = [
+            [300, 0], [-500, 0],
+            [-120, -30],  [80, -30],
+            [-100, 60],   [60, 60]
+          ];
+          const [dx, dy] = offsets[i];
+          ctx.drawImage(img, centerX + dx, centerY + dy, 200, 200);
+        };
+      });
+      ctx.fillStyle = '#0077be';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Ocean floor
+      ctx.fillStyle = '#deb887';
+      ctx.fillRect(0, canvas.height - 60, canvas.width, 60);
+
+      // Wavy Seaweed
+      ctx.strokeStyle = '#00cc44';
+      ctx.lineWidth = 2;
+      for (let i = 0; i < canvas.width; i += 60) {
+        let waveOffset = Math.sin(seaweedPhase + i * 0.01) * 10;
+        ctx.beginPath();
+        ctx.moveTo(i, canvas.height - 60);
+        ctx.quadraticCurveTo(i + waveOffset, canvas.height - 80, i, canvas.height - 100);
+        ctx.stroke();
+      }
+      seaweedPhase += 0.05;
+
+      // Bubbles
+      ctx.fillStyle = '#e0f7ff';
+      bubbles.forEach(bubble => {
+        ctx.beginPath();
+        ctx.arc(bubble.x, bubble.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        bubble.y -= bubble.speed;
+        if (bubble.y < 0) {
+          bubble.y = canvas.height - 60;
+          bubble.x = Math.random() * canvas.width;
+        }
+      });
+
+      // Crab
+      ctx.fillStyle = 'red';
+      ctx.beginPath();
+      ctx.arc(crab.x, canvas.height - 45, 10, 0, Math.PI);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(crab.x - 10, canvas.height - 45, 5, 0, Math.PI * 2);
+      ctx.arc(crab.x + 10, canvas.height - 45, 5, 0, Math.PI * 2);
+      ctx.fill();
+      crab.x += crab.dir * 1.5;
+      if (crab.x > canvas.width - 20 || crab.x < 20) crab.dir *= -1;
+
+      drawStickFigure(canvas.width / 2, canvas.height / 2, 'blue', true);
+    }
+
+    function drawCliff() {
+      const cliffHeight = 100;
+      const cliffWidth = canvas.width * 0.25;
+      const oceanTop = canvas.height - cliffHeight;
+
+      ctx.fillStyle = '#654321';
+      ctx.fillRect(0, oceanTop, cliffWidth, cliffHeight);
+      ctx.fillStyle = '#228B22';
+      ctx.fillRect(0, oceanTop - 10, cliffWidth, 10);
+
+      ctx.fillStyle = '#1E90FF';
+      ctx.fillRect(cliffWidth, oceanTop, canvas.width - cliffWidth, cliffHeight);
+
+      ctx.fillStyle = '#8B0000';
+      ctx.beginPath();
+      ctx.moveTo(boat.x, oceanTop - 15);
+      ctx.lineTo(boat.x + 60, oceanTop - 15);
+      ctx.lineTo(boat.x + 50, oceanTop);
+      ctx.lineTo(boat.x + 10, oceanTop);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(boat.x + 30, oceanTop - 15);
+      ctx.lineTo(boat.x + 30, oceanTop - 45);
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(boat.x + 30, oceanTop - 15);
+      ctx.lineTo(boat.x + 45, oceanTop - 35);
+      ctx.lineTo(boat.x + 30, oceanTop - 35);
+      ctx.closePath();
+      ctx.fill();
+
+      boat.x += boat.dir * 2;
+      if (boat.x > canvas.width - 70 || boat.x < canvas.width * 0.25 + 10) boat.dir *= -1;
+    }
+
+    function drawSplash(x, y, frame) {
+      if (frame < 20) {
+        ctx.fillStyle = '#ffffff88';
+        ctx.beginPath();
+        ctx.arc(x, y, frame * 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function updateLobbedPlayer() {
+      if (player2.isFlying && !player2.hasFallen) {
+        player2.x += player2.vx;
+        player2.y += player2.vy;
+        player2.vy += player2.gravity;
+        if (player2.y > canvas.height - 100) {
+          player2.hasFallen = true;
+          player2.splashFrame = 1;
+          continueButton.style.display = 'block';
+        }
+      } else if (player2.hasFallen && player2.splashFrame > 0 && player2.splashFrame < 20) {
+        drawSplash(player2.x, canvas.height - 100, player2.splashFrame);
+        player2.splashFrame++;
+      }
+    }
+
+    function gameLoop() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (underwaterScene) {
+        drawUnderwaterScene();
+      } else {
+        drawCliff();
+        drawStickFigure(player1.x, player1.y, player1.color);
+        if (!player2.hasFallen) {
+          drawStickFigure(player2.x, player2.y, player2.color);
+        }
+        updateLobbedPlayer();
+      }
+
+      setTimeout(() => requestAnimationFrame(gameLoop), 16)
+    }
+
+    canvas.addEventListener('click', () => {
+      if (!player2.isFlying && !player2.hasFallen) {
+        player2.vx = 6;
+        player2.vy = -9;
+        player2.isFlying = true;
+      }
+    });
+
+    continueButton.addEventListener('click', () => {
+      underwaterScene = true;
+      title.innerText = "I love you, Happy Anniversary";
+      continueButton.style.display = 'none';
+    });
+
+    gameLoop();
+  </script>
+</body>
+</html>
